@@ -20,10 +20,10 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn new() -> Self {
-        Chunk {
-            code: vec![],
-            constants: vec![],
-            lines: vec![],
+        Self {
+            code: Vec::new(),
+            constants: Vec::new(),
+            lines: Vec::new(),
         }
     }
 
@@ -40,6 +40,10 @@ impl Chunk {
     pub fn write_constant(&mut self, constant: Constant, line: u32) {
         self.code.push(constant);
         self.lines.push(line);
+    }
+
+    pub fn code(&self) -> &[u8] {
+        &self.code[..]
     }
 
     pub fn disassemble(&self, name: &str) {
