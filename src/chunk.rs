@@ -7,6 +7,7 @@ use num_enum::TryFromPrimitive;
 #[repr(u8)]
 pub enum Opcode {
     Constant,
+    Negate,
     Return,
 }
 
@@ -34,7 +35,9 @@ impl Chunk {
 
     pub fn add_constant(&mut self, value: Value) -> Constant {
         self.constants.push(value);
-        ((self.constants.len() - 1) as Constant).try_into().expect("Too many constants")
+        (self.constants.len() - 1)
+            .try_into()
+            .expect("Too many constants")
     }
 
     pub fn write_constant(&mut self, constant: Constant, line: u32) {
@@ -43,7 +46,11 @@ impl Chunk {
     }
 
     pub fn code(&self) -> &[u8] {
-        &self.code[..]
+        &self.code
+    }
+
+    pub fn constants(&self) -> &[Value] {
+        &self.constants
     }
 
     pub fn disassemble(&self, name: &str) {
@@ -61,14 +68,14 @@ impl Chunk {
         let line = self.lines[offset];
         if offset > 0 && line == self.lines[offset - 1] {
             print!("   | ");
-        }
-        else {
+        } else {
             print!("{:>4} ", line);
         }
 
         if let Ok(opcode) = self.code[offset].try_into() {
             match opcode {
                 Opcode::Constant => self.constant_instruction("OP_CONSTANT", offset),
+                Opcode::Negate => Self::simple_instruction("OP_NEGATE", offset),
                 Opcode::Return => Self::simple_instruction("OP_RETURN", offset),
             }
         } else {
@@ -84,7 +91,10 @@ impl Chunk {
 
     fn constant_instruction(&self, name: &str, offset: usize) -> usize {
         let constant = self.code[offset + 1];
-        println!("{:<16} {:>4} '{}'", name, constant, self.constants[constant as usize]);
+        println!(
+            "{:<16} {:>4} '{}'",
+            name, constant, self.constants[constant as usize]
+        );
         offset + 2
     }
 }
