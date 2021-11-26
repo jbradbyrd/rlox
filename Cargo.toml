@@ -3,5 +3,8 @@ name = "rlox"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+debug_trace_execution = []
+
 [dependencies]
 num_enum = "0.5.4"
