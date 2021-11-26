@@ -7,6 +7,10 @@ use num_enum::TryFromPrimitive;
 #[repr(u8)]
 pub enum Opcode {
     Constant,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
     Negate,
     Return,
 }
@@ -75,6 +79,10 @@ impl Chunk {
         if let Ok(opcode) = self.code[offset].try_into() {
             match opcode {
                 Opcode::Constant => self.constant_instruction("OP_CONSTANT", offset),
+                Opcode::Add => Self::simple_instruction("OP_ADD", offset),
+                Opcode::Subtract => Self::simple_instruction("OP_SUBTRACT", offset),
+                Opcode::Multiply => Self::simple_instruction("OP_MULTIPLY", offset),
+                Opcode::Divide => Self::simple_instruction("OP_DIVIDE", offset),
                 Opcode::Negate => Self::simple_instruction("OP_NEGATE", offset),
                 Opcode::Return => Self::simple_instruction("OP_RETURN", offset),
             }

@@ -8,13 +8,10 @@ pub struct VM {
 
 impl VM {
     pub fn new() -> Self {
-        let mut vm = Self {
+        Self {
             ip: 0,
-            stack: Vec::new(),
-        };
-
-        vm.stack.reserve(255);
-        vm
+            stack: Vec::with_capacity(255),
+        }
     }
 
     pub fn interpret(&mut self, chunk: &Chunk) {
@@ -23,6 +20,16 @@ impl VM {
     }
 
     fn run(&mut self, chunk: &Chunk) {
+        macro_rules! binary_op {
+            ($op:tt) => {
+                {
+                    let b = self.pop();
+                    let a = self.pop();
+                    self.push(a $op b);
+                }
+            };
+        }
+
         loop {
             #[cfg(feature = "debug_trace_execution")]
             self.trace(chunk);
@@ -30,15 +37,19 @@ impl VM {
             match self.read_opcode(chunk) {
                 Opcode::Constant => {
                     let constant = self.read_constant(chunk);
-                    self.stack.push(constant);
+                    self.push(constant);
                 }
+                Opcode::Add => binary_op!(+),
+                Opcode::Subtract => binary_op!(-),
+                Opcode::Multiply => binary_op!(*),
+                Opcode::Divide => binary_op!(/),
                 Opcode::Negate => {
-                    let value = self.stack.pop().unwrap_or_default();
-                    self.stack.push(-value);
+                    let top = self.top_mut();
+                    *top = -*top;
                 }
                 Opcode::Return => {
-                    println!("{}", self.stack.pop().unwrap_or_default());
-                    return
+                    println!("{}", self.pop());
+                    return;
                 }
             }
         }
@@ -58,7 +69,6 @@ impl VM {
     fn read_byte(&mut self, chunk: &Chunk) -> u8 {
         let byte = chunk.code()[self.ip];
         self.ip += 1;
-
         byte
     }
 
@@ -68,5 +78,21 @@ impl VM {
 
     fn read_constant(&mut self, chunk: &Chunk) -> Value {
         chunk.constants()[self.read_byte(chunk) as usize]
+    }
+
+    fn push(&mut self, value: Value) {
+        self.stack.push(value)
+    }
+
+    fn pop(&mut self) -> Value {
+        self.stack.pop().expect("Stack underflow")
+    }
+
+    fn top(&self) -> &Value {
+        self.stack.last().expect("Stack underflow")
+    }
+
+    fn top_mut(&mut self) -> &mut Value {
+        self.stack.last_mut().expect("Stack underflow")
     }
 }
