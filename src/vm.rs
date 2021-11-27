@@ -1,6 +1,11 @@
 use super::chunk::*;
 use super::value::Value;
 
+pub enum InterpretError {
+    Compile,
+    Runtime,
+}
+
 pub struct VM {
     ip: usize,
     stack: Vec<Value>,
@@ -14,9 +19,13 @@ impl VM {
         }
     }
 
-    pub fn interpret(&mut self, chunk: &Chunk) {
+    pub fn interpret(&mut self, source: &str) -> Result<(), InterpretError> {
+        println!("beep boop: {}", source);
+        Ok(())
+        /*
         self.ip = 0;
         self.run(chunk);
+        */
     }
 
     fn run(&mut self, chunk: &Chunk) {
