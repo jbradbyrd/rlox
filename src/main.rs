@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
 mod chunk;
-mod value;
-mod vm;
 mod compiler;
 mod scanner;
+mod value;
+mod vm;
 
 use std::env;
 use std::fs;
@@ -48,9 +48,9 @@ fn run_file(file_name: &str) {
             let result = vm.interpret(&source);
             drop(vm);
             match result {
-                Ok(()) => {},
+                Ok(()) => {}
                 Err(InterpretError::Compile) => process::exit(65),
-                Err(InterpretError::Runtime) => process::exit(70),                
+                Err(InterpretError::Runtime) => process::exit(70),
             }
         }
         Err(error) => {
