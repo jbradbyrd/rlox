@@ -1,6 +1,7 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
+#[derive(PartialEq)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -47,14 +48,16 @@ pub enum TokenType {
     True,
     Var,
     While,
-
-    Error,
-    Eof,
 }
 
 pub struct Token<'src> {
     pub token_type: TokenType,
     pub string: &'src str,
+    pub line: i32,
+}
+
+pub struct Error {
+    pub message: &'static str,
     pub line: i32,
 }
 
@@ -77,26 +80,57 @@ impl<'src> Scanner<'src> {
         }
     }
 
-    pub fn scan_token(&mut self) -> Option<Token<'src>> {
+    pub fn scan_token(&mut self) -> Result<Option<Token<'src>>, Error> {
         self.skip_whitespace();
+        self.start = self.current;
 
         if let Some(ch) = self.advance() {
-            match ch {
-                '(' => self.make_token(TokenType::LeftParen),
-                ')' => self.make_token(TokenType::RightParen),
-                '{' => self.make_token(TokenType::LeftBrace),
-                '}' => self.make_token(TokenType::RightBrace),
-                ';' => self.make_token(TokenType::Semicolon),
-                ',' => self.make_token(TokenType::Comma),
-                '.' => self.make_token(TokenType::Dot),
-                '-' => self.make_token(TokenType::Minus),
-                '+' => self.make_token(TokenType::Plus),
-                '/' => self.make_token(TokenType::Slash),
-                '*' => self.make_token(TokenType::Star),
-                _ => None,
-            }
+            let token_type = match ch {
+                '(' => TokenType::LeftParen,
+                ')' => TokenType::RightParen,
+                '{' => TokenType::LeftBrace,
+                '}' => TokenType::RightBrace,
+                ';' => TokenType::Semicolon,
+                ',' => TokenType::Comma,
+                '.' => TokenType::Dot,
+                '-' => TokenType::Minus,
+                '+' => TokenType::Plus,
+                '/' => TokenType::Slash,
+                '*' => TokenType::Star,
+                '!' => {
+                    if self.matches('=') {
+                        TokenType::BangEqual
+                    } else {
+                        TokenType::Bang
+                    }
+                }
+                '=' => {
+                    if self.matches('=') {
+                        TokenType::EqualEqual
+                    } else {
+                        TokenType::Equal
+                    }
+                }
+                '<' => {
+                    if self.matches('=') {
+                        TokenType::LessEqual
+                    } else {
+                        TokenType::Less
+                    }
+                }
+                '>' => {
+                    if self.matches('=') {
+                        TokenType::GreaterEqual
+                    } else {
+                        TokenType::Greater
+                    }
+                }
+                _ => return Err(self.make_error("Unexpected character.")),
+            };
+            
+            Ok(Some(self.make_token(token_type)))
         } else {
-            None
+            Ok(None)
         }
     }
 
@@ -107,6 +141,18 @@ impl<'src> Scanner<'src> {
         } else {
             None
         }
+    }
+
+    fn matches(&mut self, expected: char) -> bool {
+        if let Some(ch) = self.chars.peek() {
+            if *ch == expected {
+                self.chars.next();
+                self.current += 1;
+                return true;
+            }
+        }
+
+        false
     }
 
     fn skip_whitespace(&mut self) {
@@ -128,18 +174,17 @@ impl<'src> Scanner<'src> {
         }
     }
 
-    fn make_token(&self, token_type: TokenType) -> Option<Token<'src>> {
-        Some(Token {
+    fn make_token(&self, token_type: TokenType) -> Token<'src> {
+        Token {
             token_type,
             string: &self.source[self.start..self.current],
             line: self.line,
-        })
+        }
     }
 
-    fn error_token(&self, message: &'static str) -> Token {
-        Token {
-            token_type: TokenType::Error,
-            string: message,
+    fn make_error(&self, message: &'static str) -> Error {
+        Error {
+            message,
             line: self.line,
         }
     }

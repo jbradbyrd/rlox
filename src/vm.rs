@@ -1,4 +1,5 @@
 use super::chunk::*;
+use super::compiler::compile;
 use super::value::Value;
 
 pub enum InterpretError {
@@ -20,12 +21,8 @@ impl VM {
     }
 
     pub fn interpret(&mut self, source: &str) -> Result<(), InterpretError> {
-        println!("beep boop: {}", source);
+        compile(source);
         Ok(())
-        /*
-        self.ip = 0;
-        self.run(chunk);
-        */
     }
 
     fn run(&mut self, chunk: &Chunk) {
