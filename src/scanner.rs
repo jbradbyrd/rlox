@@ -1,4 +1,3 @@
-use std::iter::Peekable;
 use std::str::Chars;
 
 #[derive(PartialEq)]
@@ -63,19 +62,25 @@ pub struct Error {
 
 pub struct Scanner<'src> {
     source: &'src str,
-    chars: Peekable<Chars<'src>>,
     start: usize,
     current: usize,
+    peek: Option<char>,
+    peek_next: Option<char>,
+    chars: Chars<'src>,
     line: i32,
 }
 
 impl<'src> Scanner<'src> {
     pub fn new(source: &'src str) -> Self {
+        let mut chars = source.chars();
+
         Scanner {
             source,
-            chars: source.chars().peekable(),
             start: 0,
             current: 0,
+            peek: chars.next(),
+            peek_next: chars.next(),
+            chars,
             line: 1,
         }
     }
@@ -127,7 +132,7 @@ impl<'src> Scanner<'src> {
                 }
                 _ => return Err(self.make_error("Unexpected character.")),
             };
-            
+
             Ok(Some(self.make_token(token_type)))
         } else {
             Ok(None)
@@ -135,41 +140,44 @@ impl<'src> Scanner<'src> {
     }
 
     fn advance(&mut self) -> Option<char> {
-        if let Some(ch) = self.chars.next() {
-            self.current += 1;
-            Some(ch)
-        } else {
-            None
+        let next = self.peek;
+        self.peek = self.peek_next;
+        self.peek_next = self.chars.next();
+
+        if let Some(ch) = next {
+            self.current += ch.len_utf8();
         }
+
+        next
     }
 
     fn matches(&mut self, expected: char) -> bool {
-        if let Some(ch) = self.chars.peek() {
-            if *ch == expected {
-                self.chars.next();
-                self.current += 1;
-                return true;
-            }
+        if self.peek == Some(expected) {
+            self.advance();
+            true
+        } else {
+            false
         }
-
-        false
     }
 
     fn skip_whitespace(&mut self) {
-        loop {
-            if let Some(ch) = self.chars.peek() {
-                match ch {
-                    ' ' | '\r' | '\t' => {
-                        self.advance();
-                    }
-                    '\n' => {
-                        self.line += 1;
-                        self.advance();
-                    }
-                    _ => return,
+        while let Some(ch) = self.peek {
+            match ch {
+                ' ' | '\r' | '\t' => {
+                    self.advance();
                 }
-            } else {
-                return;
+                '\n' => {
+                    self.line += 1;
+                    self.advance();
+                }
+                '/' => {
+                    if self.peek_next == Some('/') {
+                        while self.peek.is_some() && self.peek != Some('\n') {
+                            self.advance();
+                        }
+                    }
+                }
+                _ => return,
             }
         }
     }
