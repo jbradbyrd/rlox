@@ -1,3 +1,4 @@
+use std::iter::Iterator;
 use std::str::Chars;
 
 #[derive(PartialEq)]
@@ -70,6 +71,46 @@ pub struct Scanner<'src> {
     line: i32,
 }
 
+trait IsAlpha {
+    fn is_alpha(&self) -> bool;
+}
+
+impl IsAlpha for char {
+    fn is_alpha(&self) -> bool {
+        self.is_ascii_alphabetic() || *self == '_'
+    }    
+}
+
+impl IsAlpha for Option<char> {
+    fn is_alpha(&self) -> bool {
+        if let Some(ch) = self {
+            ch.is_alpha()
+        } else {
+            false
+        }
+    }
+}
+
+trait IsDigit {
+    fn is_digit(self) -> bool;
+}
+
+impl IsDigit for char {
+    fn is_digit(self) -> bool {
+        self.is_ascii_digit()
+    }    
+}
+
+impl IsDigit for Option<char> {
+    fn is_digit(self) -> bool {
+        if let Some(ch) = self {
+            ch.is_digit()
+        } else {
+            false
+        }
+    }
+}
+
 impl<'src> Scanner<'src> {
     pub fn new(source: &'src str) -> Self {
         let mut chars = source.chars();
@@ -85,58 +126,63 @@ impl<'src> Scanner<'src> {
         }
     }
 
-    pub fn scan_token(&mut self) -> Result<Option<Token<'src>>, Error> {
+    fn scan_token(&mut self) -> Option<Result<Token<'src>, Error>> {
         self.skip_whitespace();
         self.start = self.current;
 
-        if let Some(ch) = self.advance() {
-            let token_type = match ch {
-                '(' => TokenType::LeftParen,
-                ')' => TokenType::RightParen,
-                '{' => TokenType::LeftBrace,
-                '}' => TokenType::RightBrace,
-                ';' => TokenType::Semicolon,
-                ',' => TokenType::Comma,
-                '.' => TokenType::Dot,
-                '-' => TokenType::Minus,
-                '+' => TokenType::Plus,
-                '/' => TokenType::Slash,
-                '*' => TokenType::Star,
+        self.advance().map(|ch| {
+            if ch.is_alpha() {
+                return self.make_identifier();
+            }
+            
+            if ch.is_digit() {
+                return self.make_number();
+            }
+
+            match ch {
+                '(' => self.make_token(TokenType::LeftParen),
+                ')' => self.make_token(TokenType::RightParen),
+                '{' => self.make_token(TokenType::LeftBrace),
+                '}' => self.make_token(TokenType::RightBrace),
+                ';' => self.make_token(TokenType::Semicolon),
+                ',' => self.make_token(TokenType::Comma),
+                '.' => self.make_token(TokenType::Dot),
+                '-' => self.make_token(TokenType::Minus),
+                '+' => self.make_token(TokenType::Plus),
+                '/' => self.make_token(TokenType::Slash),
+                '*' => self.make_token(TokenType::Star),
                 '!' => {
                     if self.matches('=') {
-                        TokenType::BangEqual
+                        self.make_token(TokenType::BangEqual)
                     } else {
-                        TokenType::Bang
+                        self.make_token(TokenType::Bang)
                     }
                 }
                 '=' => {
                     if self.matches('=') {
-                        TokenType::EqualEqual
+                        self.make_token(TokenType::EqualEqual)
                     } else {
-                        TokenType::Equal
+                        self.make_token(TokenType::Equal)
                     }
                 }
                 '<' => {
                     if self.matches('=') {
-                        TokenType::LessEqual
+                        self.make_token(TokenType::LessEqual)
                     } else {
-                        TokenType::Less
+                        self.make_token(TokenType::Less)
                     }
                 }
                 '>' => {
                     if self.matches('=') {
-                        TokenType::GreaterEqual
+                        self.make_token(TokenType::GreaterEqual)
                     } else {
-                        TokenType::Greater
+                        self.make_token(TokenType::Greater)
                     }
                 }
-                _ => return Err(self.make_error("Unexpected character.")),
-            };
-
-            Ok(Some(self.make_token(token_type)))
-        } else {
-            Ok(None)
-        }
+                '"' => self.make_string(),
+                _ => self.make_error("Unexpected character."),
+            }
+        })
     }
 
     fn advance(&mut self) -> Option<char> {
@@ -172,7 +218,7 @@ impl<'src> Scanner<'src> {
                 }
                 '/' => {
                     if self.peek_next == Some('/') {
-                        while self.peek.is_some() && self.peek != Some('\n') {
+                        while self.peek != Some('\n') && self.peek.is_some() {
                             self.advance();
                         }
                     }
@@ -182,18 +228,58 @@ impl<'src> Scanner<'src> {
         }
     }
 
-    fn make_token(&self, token_type: TokenType) -> Token<'src> {
-        Token {
-            token_type,
-            string: &self.source[self.start..self.current],
-            line: self.line,
+    fn make_number(&mut self) -> Result<Token<'src>, Error> {
+        while self.peek.is_digit() {
+            self.advance();
+        }
+
+        if self.peek == Some('.') && self.peek_next.is_digit() {
+            self.advance(); // consume decimal
+            while self.peek.is_digit() {
+                self.advance();
+            }
+        }
+
+        self.make_token(TokenType::Number)
+    }
+
+    fn make_string(&mut self) -> Result<Token<'src>, Error> {
+        while self.peek != Some('"') && self.peek.is_some() {
+            if self.peek == Some('\n') {
+                self.line += 1;
+            }
+
+            self.advance();
+        }
+
+        if self.peek.is_none() {
+            self.make_error("Unterminated string.")
+        } else {
+            self.advance(); // closing quote
+            self.make_token(TokenType::String)
         }
     }
 
-    fn make_error(&self, message: &'static str) -> Error {
-        Error {
+    fn make_token(&self, token_type: TokenType) -> Result<Token<'src>, Error> {
+        Ok(Token {
+            token_type,
+            string: &self.source[self.start..self.current],
+            line: self.line,
+        })
+    }
+
+    fn make_error(&self, message: &'static str) -> Result<Token<'src>, Error> {
+        Err(Error {
             message,
             line: self.line,
-        }
+        })
+    }
+}
+
+impl<'src> Iterator for Scanner<'src> {
+    type Item = Result<Token<'src>, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.scan_token()
     }
 }
