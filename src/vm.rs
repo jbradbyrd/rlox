@@ -1,5 +1,11 @@
 use super::chunk::*;
+use super::compiler::compile;
 use super::value::Value;
+
+pub enum InterpretError {
+    Compile,
+    Runtime,
+}
 
 pub struct VM {
     ip: usize,
@@ -14,9 +20,9 @@ impl VM {
         }
     }
 
-    pub fn interpret(&mut self, chunk: &Chunk) {
-        self.ip = 0;
-        self.run(chunk);
+    pub fn interpret(&mut self, source: &str) -> Result<(), InterpretError> {
+        compile(source);
+        Ok(())
     }
 
     fn run(&mut self, chunk: &Chunk) {
