@@ -1,7 +1,7 @@
 use std::iter::Iterator;
 use std::str::Chars;
 
-#[derive(PartialEq)]
+#[derive(Debug)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -71,42 +71,33 @@ pub struct Scanner<'src> {
     line: i32,
 }
 
-trait IsAlpha {
+trait CharChecker {
     fn is_alpha(&self) -> bool;
+    fn is_dec_digit(&self) -> bool;
 }
 
-impl IsAlpha for char {
+impl CharChecker for char {
     fn is_alpha(&self) -> bool {
         self.is_ascii_alphabetic() || *self == '_'
-    }    
-}
+    }
 
-impl IsAlpha for Option<char> {
-    fn is_alpha(&self) -> bool {
-        if let Some(ch) = self {
-            ch.is_alpha()
-        } else {
-            false
-        }
+    fn is_dec_digit(&self) -> bool {
+        self.is_ascii_digit()
     }
 }
 
-trait IsDigit {
-    fn is_digit(self) -> bool;
-}
+impl CharChecker for Option<char> {
+    fn is_alpha(&self) -> bool {
+        match self {
+            Some(ch) => ch.is_alpha(),
+            None => false,
+        }
+    }
 
-impl IsDigit for char {
-    fn is_digit(self) -> bool {
-        self.is_ascii_digit()
-    }    
-}
-
-impl IsDigit for Option<char> {
-    fn is_digit(self) -> bool {
-        if let Some(ch) = self {
-            ch.is_digit()
-        } else {
-            false
+    fn is_dec_digit(&self) -> bool {
+        match self {
+            Some(ch) => ch.is_dec_digit(),
+            None => false,
         }
     }
 }
@@ -134,8 +125,8 @@ impl<'src> Scanner<'src> {
             if ch.is_alpha() {
                 return self.make_identifier();
             }
-            
-            if ch.is_digit() {
+
+            if ch.is_dec_digit() {
                 return self.make_number();
             }
 
@@ -228,14 +219,40 @@ impl<'src> Scanner<'src> {
         }
     }
 
-    fn make_number(&mut self) -> Result<Token<'src>, Error> {
-        while self.peek.is_digit() {
+    fn make_identifier(&mut self) -> Result<Token<'src>, Error> {
+        while self.peek.is_alpha() || self.peek.is_dec_digit() {
             self.advance();
         }
 
-        if self.peek == Some('.') && self.peek_next.is_digit() {
+        self.make_token(match &self.source[self.start..self.current] {
+            "and" => TokenType::And,
+            "class" => TokenType::Class,
+            "else" => TokenType::Else,
+            "false" => TokenType::False,
+            "for" => TokenType::For,
+            "fun" => TokenType::Fun,
+            "if" => TokenType::If,
+            "nil" => TokenType::Nil,
+            "or" => TokenType::Or,
+            "print" => TokenType::Print,
+            "return" => TokenType::Return,
+            "super" => TokenType::Super,
+            "this" => TokenType::This,
+            "true" => TokenType::True,
+            "var" => TokenType::Var,
+            "while" => TokenType::While,
+            _ => TokenType::Identifier,
+        })
+    }
+
+    fn make_number(&mut self) -> Result<Token<'src>, Error> {
+        while self.peek.is_dec_digit() {
+            self.advance();
+        }
+
+        if self.peek == Some('.') && self.peek_next.is_dec_digit() {
             self.advance(); // consume decimal
-            while self.peek.is_digit() {
+            while self.peek.is_dec_digit() {
                 self.advance();
             }
         }

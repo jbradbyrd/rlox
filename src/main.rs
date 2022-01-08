@@ -46,7 +46,6 @@ fn run_file(file_name: &str) {
         Ok(source) => {
             let mut vm = VM::new();
             let result = vm.interpret(&source);
-            drop(vm);
             match result {
                 Ok(()) => {}
                 Err(InterpretError::Compile) => process::exit(65),
